@@ -7,6 +7,7 @@ import traceback
 from typing import Dict
 import logging
 import queue
+import win32api
 
 from .mask_window import MaskWindow
 from .tray_manager import TrayManager
@@ -149,18 +150,23 @@ class ScreenMaskApp:
             return
 
         try:
-            mouse_pos = self.mouse_tracker.get_mouse_position()
+            mouse_pos = win32api.GetCursorPos()
 
             with self._lock:
                 for i, monitor in enumerate(self.monitors):
                     try:
                         if self.monitor_states.get(i, False) and i in self.mask_windows:
-                            if self.mouse_tracker.is_mouse_in_monitor(
-                                mouse_pos, monitor
-                            ):
+                            in_monitor = (
+                                monitor.x <= mouse_pos[0] < monitor.x + monitor.width
+                                and monitor.y
+                                <= mouse_pos[1]
+                                < monitor.y + monitor.height
+                            )
+                            (
                                 self.mask_windows[i].hide()
-                            else:
-                                self.mask_windows[i].show()
+                                if in_monitor
+                                else self.mask_windows[i].show()
+                            )
                     except Exception as e:
                         logging.error(f"处理显示器 {i} 时出错: {str(e)}")
                         continue  # 继续处理其他显示器
